@@ -23,9 +23,14 @@ export interface Element {
   };
 }
 
+// Tool types that can be selected
+export type ToolType = 'select' | 'scale';
+
 const App: React.FC = () => {
   const [elements, setElements] = useState<Element[]>([]);
-
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [activeTool, setActiveTool] = useState<ToolType>('select');
+  
   const addElement = (element: Element) => {
     setElements([...elements, element]);
   };
@@ -54,20 +59,69 @@ const App: React.FC = () => {
     });
   };
 
+  const resizeElement = (index: number, newWidth: number, newHeight: number) => {
+    setElements(prevElements => {
+      const newElements = [...prevElements];
+      const element = {...newElements[index]};
+      
+      if (element.type === 'rectangle') {
+        element.props = {
+          ...element.props,
+          width: newWidth,
+          height: newHeight
+        };
+      } else if (element.type === 'circle') {
+        // For circles, use the average of width and height for radius
+        const newRadius = Math.max(newWidth, newHeight) / 2;
+        element.props = {
+          ...element.props,
+          r: newRadius
+        };
+      } else if (element.type === 'text') {
+        // For text, scale font size proportionally to height
+        const currentFontSize = element.props.fontSize || 16;
+        const originalHeight = 20; // Approximate default text height
+        const scaleFactor = newHeight / originalHeight;
+        
+        element.props = {
+          ...element.props,
+          fontSize: currentFontSize * scaleFactor
+        };
+      }
+      
+      newElements[index] = element;
+      return newElements;
+    });
+  };
+
+  const handleToolChange = (tool: ToolType) => {
+    setActiveTool(tool);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>Present.io</h1>
         <div className="app-controls">
-          <small>Shift+Click for multi-select • Escape to deselect all</small>
+          <small>Shift+Click for multi-select • Escape to deselect all • Use Scale tool to resize elements</small>
         </div>
       </header>
       <main className="app-main">
-        <Toolbar onAddElement={addElement} />
-        <Canvas 
-          elements={elements} 
-          onUpdateElementPosition={updateElementPosition}
+        <Toolbar 
+          onAddElement={addElement} 
+          activeTool={activeTool}
+          onToolChange={handleToolChange}
         />
+        <div className="canvas-wrapper">
+          <Canvas 
+            elements={elements} 
+            onUpdateElementPosition={updateElementPosition}
+            onResizeElement={resizeElement}
+            selectedIndices={selectedIndices}
+            onSelectionChange={setSelectedIndices}
+            activeTool={activeTool}
+          />
+        </div>
       </main>
     </div>
   );
