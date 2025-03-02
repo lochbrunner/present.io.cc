@@ -1,48 +1,55 @@
 # Present.io
 
-An SVG editor built with React and TypeScript.
+[![Deploy to GitHub Pages](https://github.com/lochbrunner/present.io.cc/actions/workflows/deploy.yml/badge.svg)](https://github.com/lochbrunner/present.io.cc/actions/workflows/deploy.yml)
+
+A web-based SVG editor for creating and manipulating visual elements. 
 
 ## Features
 
-- Create and edit SVG elements (rectangles, circles, text, etc.)
-- Interactive canvas for editing
-- Modern UI with SCSS styling
+- Create basic SVG shapes (rectangles, circles, text)
+- Select and move elements 
+- Multi-select elements with Shift+Click
+- Scale elements using resize handles
+- User-friendly interface with tool selection
+
+## Live Demo
+
+Check out the live demo at: [https://lochbrunner.github.io/present.io.cc](https://lochbrunner.github.io/present.io.cc)
 
 ## Development
 
 ### Prerequisites
 
-- Node.js (v14 or later)
+- Node.js (v14 or higher)
 - npm
 
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/lochbrunner/present.io.cc.git
+cd present.io.cc
+
+# Install dependencies
 npm install
-```
 
-### Running Development Server
-
-```bash
+# Start the development server
 npm start
 ```
 
-This will start the development server at http://localhost:3000.
-
-### Building for Production
+### Build
 
 ```bash
+# Build for production
 npm run build
 ```
 
-This will create a production-ready build in the `dist` directory.
+### Deploy to GitHub Pages
 
-## Scripts
-
-- `npm start` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run typecheck` - Run TypeScript type checking
+```bash
+# Deploy to GitHub Pages
+npm run deploy
+```
 
 ## License
 
