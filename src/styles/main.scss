@@ -29,9 +29,17 @@ body {
   color: white;
   padding: 1rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
   h1 {
     font-size: 1.5rem;
+  }
+
+  .app-controls {
+    font-size: 0.8rem;
+    opacity: 0.9;
   }
 }
 
@@ -87,5 +95,10 @@ body {
   
   rect, circle, text {
     stroke-width: 2px;
+  }
+  
+  &:hover {
+    outline: 3px dashed darken($primary-color, 10%);
+    outline-offset: 2px;
   }
 }

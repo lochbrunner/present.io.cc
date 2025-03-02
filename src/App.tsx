@@ -58,6 +58,9 @@ const App: React.FC = () => {
     <div className="app">
       <header className="app-header">
         <h1>Present.io</h1>
+        <div className="app-controls">
+          <small>Shift+Click for multi-select • Escape to deselect all</small>
+        </div>
       </header>
       <main className="app-main">
         <Toolbar onAddElement={addElement} />

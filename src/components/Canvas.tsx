@@ -7,36 +7,49 @@ interface CanvasProps {
 }
 
 const Canvas: React.FC<CanvasProps> = ({ elements, onUpdateElementPosition }) => {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [dragging, setDragging] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   // Handle mouse move for dragging
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (dragging && selectedIndex !== null) {
+      if (dragging && activeIndex !== null) {
         const dx = e.clientX - startPos.x;
         const dy = e.clientY - startPos.y;
         
-        const element = elements[selectedIndex];
-        let newX = 0;
-        let newY = 0;
+        // Move all selected elements
+        selectedIndices.forEach(index => {
+          const element = elements[index];
+          let newX = 0;
+          let newY = 0;
+          
+          if (element.type === 'rectangle' || element.type === 'text') {
+            newX = (element.props.x || 0) + dx;
+            newY = (element.props.y || 0) + dy;
+          } else if (element.type === 'circle') {
+            newX = (element.props.cx || 0) + dx;
+            newY = (element.props.cy || 0) + dy;
+          }
+          
+          onUpdateElementPosition(index, newX, newY);
+        });
         
-        if (element.type === 'rectangle' || element.type === 'text') {
-          newX = (element.props.x || 0) + dx;
-          newY = (element.props.y || 0) + dy;
-        } else if (element.type === 'circle') {
-          newX = (element.props.cx || 0) + dx;
-          newY = (element.props.cy || 0) + dy;
-        }
-        
-        onUpdateElementPosition(selectedIndex, newX, newY);
         setStartPos({ x: e.clientX, y: e.clientY });
       }
     };
 
     const handleMouseUp = () => {
       setDragging(false);
+      setActiveIndex(null);
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Clear selection when Escape is pressed
+      if (e.key === 'Escape') {
+        setSelectedIndices([]);
+      }
     };
 
     if (dragging) {
@@ -44,23 +57,44 @@ const Canvas: React.FC<CanvasProps> = ({ elements, onUpdateElementPosition }) =>
       document.addEventListener('mouseup', handleMouseUp);
     }
 
+    // Add keyboard listener for escape key
+    document.addEventListener('keyup', handleKeyUp);
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [dragging, elements, selectedIndex, startPos, onUpdateElementPosition]);
+  }, [dragging, elements, selectedIndices, activeIndex, startPos, onUpdateElementPosition]);
 
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
     setDragging(true);
-    setSelectedIndex(index);
+    setActiveIndex(index);
     setStartPos({ x: e.clientX, y: e.clientY });
+    
+    // Handle multi-select with Shift key
+    if (e.shiftKey) {
+      // If element is already selected, remove it from selection
+      if (selectedIndices.includes(index)) {
+        setSelectedIndices(selectedIndices.filter(i => i !== index));
+      } else {
+        // Add to existing selection
+        setSelectedIndices([...selectedIndices, index]);
+      }
+    } else {
+      // Regular click (no shift) - select only this element
+      if (!selectedIndices.includes(index)) {
+        setSelectedIndices([index]);
+      }
+    }
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-    // If clicking on the canvas (not an element), deselect
-    if (e.target === e.currentTarget) {
-      setSelectedIndex(null);
+    // If clicking on the canvas (not an element), deselect all
+    // But only if shift isn't pressed
+    if (e.target === e.currentTarget && !e.shiftKey) {
+      setSelectedIndices([]);
     }
   };
 
@@ -119,8 +153,8 @@ const Canvas: React.FC<CanvasProps> = ({ elements, onUpdateElementPosition }) =>
           <g 
             key={index} 
             onMouseDown={(e) => handleMouseDown(e, index)}
-            className={selectedIndex === index ? 'selected-element' : ''}
-            style={{ cursor: selectedIndex === index ? 'move' : 'pointer' }}
+            className={selectedIndices.includes(index) ? 'selected-element' : ''}
+            style={{ cursor: selectedIndices.includes(index) ? 'move' : 'pointer' }}
           >
             {renderElement(element, index)}
           </g>
