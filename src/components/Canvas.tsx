@@ -605,9 +605,7 @@ const Canvas: React.FC<CanvasProps> = ({
     if (!settings.showGrid) return null;
     
     const gridLines = [];
-    const canvasWidth = 800;
-    const canvasHeight = 600;
-    const spacing = settings.gridSpacing;
+    const { canvasWidth, canvasHeight, gridSpacing: spacing } = settings;
     
     // Vertical lines
     for (let x = spacing; x < canvasWidth; x += spacing) {
@@ -650,8 +648,8 @@ const Canvas: React.FC<CanvasProps> = ({
     <div className="canvas-container">
       <svg 
         className="svg-canvas" 
-        width="800" 
-        height="600"
+        width={settings.canvasWidth}
+        height={settings.canvasHeight}
         onMouseDown={handleCanvasMouseDown}
         ref={svgRef}
         style={{ cursor: getCursor() }}

@@ -32,6 +32,8 @@ export interface CanvasSettings {
   showGrid: boolean;
   gridSpacing: number;
   snapToGrid: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
 const App: React.FC = () => {
@@ -42,7 +44,9 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<CanvasSettings>({
     showGrid: false,
     gridSpacing: 20,
-    snapToGrid: false
+    snapToGrid: false,
+    canvasWidth: 800,
+    canvasHeight: 600
   });
   
   const addElement = (element: Element) => {
