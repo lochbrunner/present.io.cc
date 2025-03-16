@@ -52,8 +52,43 @@ body {
   }
 
   .app-controls {
-    font-size: 0.85rem;
-    opacity: 0.95;
+    display: flex;
+    align-items: center;
+    
+    .header-settings-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+      font-size: 0.9rem;
+      
+      svg {
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+      }
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      &.active {
+        background: rgba($primary-color, 0.8);
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 0 4px 12px rgba($primary-color, 0.4);
+      }
+    }
   }
 }
 
