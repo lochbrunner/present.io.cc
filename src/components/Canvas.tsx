@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Element, ToolType } from '../App';
+import React, { useState, useEffect, useRef } from 'react';
+import { Element, ToolType, CanvasSettings } from '../App';
 
 interface CanvasProps {
   elements: Element[];
@@ -8,6 +8,8 @@ interface CanvasProps {
   selectedIndices: number[];
   onSelectionChange: (indices: number[]) => void;
   activeTool: ToolType;
+  onAddElement: (element: Element) => void;
+  settings: CanvasSettings;
 }
 
 interface ResizeHandlePosition {
@@ -17,13 +19,23 @@ interface ResizeHandlePosition {
   left?: boolean;
 }
 
+interface DrawingState {
+  active: boolean;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
 const Canvas: React.FC<CanvasProps> = ({ 
   elements, 
   onUpdateElementPosition, 
   onResizeElement,
   selectedIndices,
   onSelectionChange,
-  activeTool
+  activeTool,
+  onAddElement,
+  settings
 }) => {
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
@@ -32,10 +44,51 @@ const Canvas: React.FC<CanvasProps> = ({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [elementInitialSize, setElementInitialSize] = useState({ width: 0, height: 0 });
   const [elementInitialPos, setElementInitialPos] = useState({ x: 0, y: 0 });
+  const [drawing, setDrawing] = useState<DrawingState>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0
+  });
+
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  // Get SVG coordinates from mouse event
+  const getSvgCoordinates = (e: React.MouseEvent | MouseEvent) => {
+    if (!svgRef.current) return { x: 0, y: 0 };
+    
+    const svgElement = svgRef.current;
+    const svgPoint = svgElement.createSVGPoint();
+    
+    svgPoint.x = e.clientX;
+    svgPoint.y = e.clientY;
+    
+    const ctm = svgElement.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    
+    const transformedPoint = svgPoint.matrixTransform(ctm.inverse());
+    
+    return { 
+      x: transformedPoint.x, 
+      y: transformedPoint.y 
+    };
+  };
 
   // Handle mouse move for dragging and resizing
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      // Handle drawing
+      if (drawing.active && (activeTool === 'rectangle' || activeTool === 'circle')) {
+        const coords = getSvgCoordinates(e);
+        setDrawing(prev => ({
+          ...prev,
+          currentX: coords.x,
+          currentY: coords.y
+        }));
+        return;
+      }
+
       // Handle dragging elements
       if (dragging && activeIndex !== null && !resizing) {
         const dx = e.clientX - startPos.x;
@@ -104,7 +157,82 @@ const Canvas: React.FC<CanvasProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
+      // Handle finishing a drawing
+      if (drawing.active) {
+        const coords = getSvgCoordinates(e);
+        setDrawing(prev => ({
+          ...prev,
+          active: false,
+          currentX: coords.x,
+          currentY: coords.y
+        }));
+
+        // Add the element based on the current drawing tool
+        if (activeTool === 'rectangle') {
+          const x = Math.min(drawing.startX, coords.x);
+          const y = Math.min(drawing.startY, coords.y);
+          const width = Math.abs(coords.x - drawing.startX);
+          const height = Math.abs(coords.y - drawing.startY);
+          
+          // Only add if it has some size
+          if (width > 5 && height > 5) {
+            const rectangle: Element = {
+              type: 'rectangle',
+              props: {
+                x,
+                y,
+                width,
+                height,
+                fill: '#10b981', // Emerald color
+                stroke: 'rgba(0, 0, 0, 0.15)',
+                strokeWidth: 1
+              }
+            };
+            onAddElement(rectangle);
+          }
+        } else if (activeTool === 'circle') {
+          const centerX = (drawing.startX + coords.x) / 2;
+          const centerY = (drawing.startY + coords.y) / 2;
+          const radius = Math.sqrt(
+            Math.pow(coords.x - drawing.startX, 2) + 
+            Math.pow(coords.y - drawing.startY, 2)
+          ) / 2;
+          
+          // Only add if it has some size
+          if (radius > 5) {
+            const circle: Element = {
+              type: 'circle',
+              props: {
+                cx: centerX,
+                cy: centerY,
+                r: radius,
+                fill: '#6366f1', // Indigo color
+                stroke: 'rgba(0, 0, 0, 0.15)',
+                strokeWidth: 1
+              }
+            };
+            onAddElement(circle);
+          }
+        } else if (activeTool === 'text') {
+          const text: Element = {
+            type: 'text',
+            props: {
+              x: coords.x,
+              y: coords.y,
+              text: 'Hello SVG',
+              fontSize: 24,
+              fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+              fill: '#1e293b', // Slate 800 color
+              stroke: '',
+              strokeWidth: 0,
+              textAnchor: 'middle'
+            }
+          };
+          onAddElement(text);
+        }
+      }
+
       setDragging(false);
       setResizing(false);
       setActiveIndex(null);
@@ -114,11 +242,21 @@ const Canvas: React.FC<CanvasProps> = ({
     const handleKeyUp = (e: KeyboardEvent) => {
       // Clear selection when Escape is pressed
       if (e.key === 'Escape') {
-        onSelectionChange([]);
+        if (drawing.active) {
+          setDrawing({
+            active: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0
+          });
+        } else {
+          onSelectionChange([]);
+        }
       }
     };
 
-    if (dragging || resizing) {
+    if (dragging || resizing || drawing.active) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
@@ -134,10 +272,16 @@ const Canvas: React.FC<CanvasProps> = ({
   }, [
     dragging, resizing, elements, selectedIndices, activeIndex, 
     startPos, resizeHandlePosition, elementInitialSize, elementInitialPos,
-    onUpdateElementPosition, onResizeElement, onSelectionChange
+    onUpdateElementPosition, onResizeElement, onSelectionChange, drawing,
+    activeTool, onAddElement
   ]);
 
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
+    // Don't handle element interactions when in drawing mode
+    if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'text') {
+      return;
+    }
+    
     e.stopPropagation();
     
     // Don't select when in scale mode and already selected
@@ -163,6 +307,34 @@ const Canvas: React.FC<CanvasProps> = ({
       if (!selectedIndices.includes(index)) {
         onSelectionChange([index]);
       }
+    }
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    // Handle starting a drawing
+    if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'text') {
+      const coords = getSvgCoordinates(e);
+      
+      setDrawing({
+        active: true,
+        startX: coords.x,
+        startY: coords.y,
+        currentX: coords.x,
+        currentY: coords.y
+      });
+      
+      // For click-based text placement
+      if (activeTool === 'text') {
+        // We'll create the text element on mouse up
+      }
+      
+      return;
+    }
+    
+    // If clicking on the canvas (not an element), deselect all
+    // But only if shift isn't pressed
+    if (e.target === e.currentTarget && !e.shiftKey) {
+      onSelectionChange([]);
     }
   };
 
@@ -198,14 +370,6 @@ const Canvas: React.FC<CanvasProps> = ({
         x: (element.props.cx || 0) - radius, 
         y: (element.props.cy || 0) - radius
       });
-    }
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    // If clicking on the canvas (not an element), deselect all
-    // But only if shift isn't pressed
-    if (e.target === e.currentTarget && !e.shiftKey) {
-      onSelectionChange([]);
     }
   };
 
@@ -357,11 +521,129 @@ const Canvas: React.FC<CanvasProps> = ({
     );
   };
 
-  const getCursor = (index: number) => {
+  // Render preview of the element being drawn
+  const renderDrawingPreview = () => {
+    if (!drawing.active) return null;
+    
+    if (activeTool === 'rectangle') {
+      const x = Math.min(drawing.startX, drawing.currentX);
+      const y = Math.min(drawing.startY, drawing.currentY);
+      const width = Math.abs(drawing.currentX - drawing.startX);
+      const height = Math.abs(drawing.currentY - drawing.startY);
+      
+      return (
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill="#10b981"
+          fillOpacity={0.5}
+          stroke="#10b981"
+          strokeWidth={1}
+          strokeDasharray="5,5"
+        />
+      );
+    }
+    
+    if (activeTool === 'circle') {
+      const centerX = (drawing.startX + drawing.currentX) / 2;
+      const centerY = (drawing.startY + drawing.currentY) / 2;
+      const radius = Math.sqrt(
+        Math.pow(drawing.currentX - drawing.startX, 2) + 
+        Math.pow(drawing.currentY - drawing.startY, 2)
+      ) / 2;
+      
+      return (
+        <circle
+          cx={centerX}
+          cy={centerY}
+          r={radius}
+          fill="#6366f1"
+          fillOpacity={0.5}
+          stroke="#6366f1"
+          strokeWidth={1}
+          strokeDasharray="5,5"
+        />
+      );
+    }
+    
+    return null;
+  };
+
+  const getCursor = () => {
+    if (activeTool === 'rectangle' || activeTool === 'circle') {
+      return drawing.active ? 'crosshair' : 'crosshair';
+    }
+    
+    if (activeTool === 'text') {
+      return 'text';
+    }
+    
+    if (activeTool === 'scale') {
+      return 'default';
+    }
+    
+    return 'default';
+  };
+
+  const getElementCursor = (index: number) => {
     if (activeTool === 'scale' && selectedIndices.includes(index)) {
       return 'nwse-resize';
     }
-    return selectedIndices.includes(index) ? 'move' : 'pointer';
+    
+    if (activeTool === 'select') {
+      return selectedIndices.includes(index) ? 'move' : 'pointer';
+    }
+    
+    // Don't change cursor for elements when in drawing mode
+    return 'default';
+  };
+
+  // Render grid lines
+  const renderGrid = () => {
+    if (!settings.showGrid) return null;
+    
+    const gridLines = [];
+    const canvasWidth = 800;
+    const canvasHeight = 600;
+    const spacing = settings.gridSpacing;
+    
+    // Vertical lines
+    for (let x = spacing; x < canvasWidth; x += spacing) {
+      gridLines.push(
+        <line 
+          key={`v-${x}`} 
+          x1={x} 
+          y1={0} 
+          x2={x} 
+          y2={canvasHeight} 
+          stroke="rgba(0, 0, 0, 0.1)" 
+          strokeWidth="1" 
+        />
+      );
+    }
+    
+    // Horizontal lines
+    for (let y = spacing; y < canvasHeight; y += spacing) {
+      gridLines.push(
+        <line 
+          key={`h-${y}`} 
+          x1={0} 
+          y1={y} 
+          x2={canvasWidth} 
+          y2={y} 
+          stroke="rgba(0, 0, 0, 0.1)" 
+          strokeWidth="1" 
+        />
+      );
+    }
+    
+    return (
+      <g className="grid-lines">
+        {gridLines}
+      </g>
+    );
   };
 
   return (
@@ -370,14 +652,23 @@ const Canvas: React.FC<CanvasProps> = ({
         className="svg-canvas" 
         width="800" 
         height="600"
-        onClick={handleCanvasClick}
+        onMouseDown={handleCanvasMouseDown}
+        ref={svgRef}
+        style={{ cursor: getCursor() }}
       >
+        {/* Grid */}
+        {renderGrid()}
+        
+        {/* Drawing preview */}
+        {renderDrawingPreview()}
+        
+        {/* Rendered elements */}
         {elements.map((element, index) => (
           <g 
             key={index} 
             onMouseDown={(e) => handleMouseDown(e, index)}
             className={selectedIndices.includes(index) ? 'selected-element' : ''}
-            style={{ cursor: getCursor(index) }}
+            style={{ cursor: getElementCursor(index) }}
           >
             {renderElement(element, index)}
             {selectedIndices.includes(index) && renderResizeHandles(element, index)}

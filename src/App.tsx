@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Canvas from './components/Canvas';
 import Toolbar from './components/Toolbar';
+import SettingsPanel from './components/SettingsPanel';
 
 // Define element interface
 export interface Element {
@@ -24,12 +25,25 @@ export interface Element {
 }
 
 // Tool types that can be selected
-export type ToolType = 'select' | 'scale';
+export type ToolType = 'select' | 'scale' | 'rectangle' | 'circle' | 'text' | 'settings';
+
+// Settings interface
+export interface CanvasSettings {
+  showGrid: boolean;
+  gridSpacing: number;
+  snapToGrid: boolean;
+}
 
 const App: React.FC = () => {
   const [elements, setElements] = useState<Element[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [activeTool, setActiveTool] = useState<ToolType>('select');
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<CanvasSettings>({
+    showGrid: false,
+    gridSpacing: 20,
+    snapToGrid: false
+  });
   
   const addElement = (element: Element) => {
     setElements([...elements, element]);
@@ -40,17 +54,21 @@ const App: React.FC = () => {
       const newElements = [...prevElements];
       const element = {...newElements[index]};
       
+      // Apply grid snapping if enabled
+      const newX = settings.snapToGrid ? Math.round(x / settings.gridSpacing) * settings.gridSpacing : x;
+      const newY = settings.snapToGrid ? Math.round(y / settings.gridSpacing) * settings.gridSpacing : y;
+      
       if (element.type === 'rectangle' || element.type === 'text') {
         element.props = {
           ...element.props,
-          x,
-          y
+          x: newX,
+          y: newY
         };
       } else if (element.type === 'circle') {
         element.props = {
           ...element.props,
-          cx: x,
-          cy: y
+          cx: newX,
+          cy: newY
         };
       }
       
@@ -64,15 +82,23 @@ const App: React.FC = () => {
       const newElements = [...prevElements];
       const element = {...newElements[index]};
       
+      // Apply grid snapping if enabled
+      const snappedWidth = settings.snapToGrid 
+        ? Math.round(newWidth / settings.gridSpacing) * settings.gridSpacing 
+        : newWidth;
+      const snappedHeight = settings.snapToGrid 
+        ? Math.round(newHeight / settings.gridSpacing) * settings.gridSpacing 
+        : newHeight;
+      
       if (element.type === 'rectangle') {
         element.props = {
           ...element.props,
-          width: newWidth,
-          height: newHeight
+          width: snappedWidth,
+          height: snappedHeight
         };
       } else if (element.type === 'circle') {
         // For circles, use the average of width and height for radius
-        const newRadius = Math.max(newWidth, newHeight) / 2;
+        const newRadius = Math.max(snappedWidth, snappedHeight) / 2;
         element.props = {
           ...element.props,
           r: newRadius
@@ -81,7 +107,7 @@ const App: React.FC = () => {
         // For text, scale font size proportionally to height
         const currentFontSize = element.props.fontSize || 16;
         const originalHeight = 20; // Approximate default text height
-        const scaleFactor = newHeight / originalHeight;
+        const scaleFactor = snappedHeight / originalHeight;
         
         element.props = {
           ...element.props,
@@ -95,7 +121,18 @@ const App: React.FC = () => {
   };
 
   const handleToolChange = (tool: ToolType) => {
-    setActiveTool(tool);
+    if (tool === 'settings') {
+      setShowSettings(!showSettings);
+    } else {
+      setActiveTool(tool);
+    }
+  };
+
+  const updateSettings = (newSettings: Partial<CanvasSettings>) => {
+    setSettings(prev => ({
+      ...prev,
+      ...newSettings
+    }));
   };
 
   return (
@@ -103,14 +140,14 @@ const App: React.FC = () => {
       <header className="app-header">
         <h1>Present.io</h1>
         <div className="app-controls">
-          <small>Shift+Click for multi-select • Escape to deselect all • Use Scale tool to resize elements</small>
+          <small>Select a drawing tool and drag on canvas • Shift+Click for multi-select • Escape to cancel/deselect</small>
         </div>
       </header>
       <main className="app-main">
         <Toolbar 
-          onAddElement={addElement} 
           activeTool={activeTool}
           onToolChange={handleToolChange}
+          showSettings={showSettings}
         />
         <div className="canvas-wrapper">
           <Canvas 
@@ -120,7 +157,16 @@ const App: React.FC = () => {
             selectedIndices={selectedIndices}
             onSelectionChange={setSelectedIndices}
             activeTool={activeTool}
+            onAddElement={addElement}
+            settings={settings}
           />
+          {showSettings && (
+            <SettingsPanel 
+              settings={settings}
+              onSettingsChange={updateSettings}
+              onClose={() => setShowSettings(false)}
+            />
+          )}
         </div>
       </main>
     </div>
